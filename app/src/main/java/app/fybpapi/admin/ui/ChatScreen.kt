@@ -14,6 +14,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.fybpapi.admin.api.ApiService
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 data class ChatMessage(
     val text: String,
@@ -26,6 +29,7 @@ fun ChatScreen() {
     var input by remember { mutableStateOf("") }
     var sending by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
 
     fun send() {
         val msg = input.trim()
@@ -34,20 +38,20 @@ fun ChatScreen() {
         messages = messages + ChatMessage(msg, isUser = true)
         sending = true
 
-        Thread {
+        scope.launch(Dispatchers.IO) {
             val reply = ApiService.sendChat(msg)
-            sending = false
-            messages = messages + ChatMessage(
-                text = reply ?: "请求失败：未授权或无响应",
-                isUser = false
-            )
-            // 滚动到底部
-            android.os.Handler(android.os.Looper.getMainLooper()).post {
+            withContext(Dispatchers.Main) {
+                sending = false
+                messages = messages + ChatMessage(
+                    text = reply ?: "请求失败：未授权或无响应",
+                    isUser = false
+                )
+                // 滚动到底部
                 if (listState.layoutInfo.totalItemsCount > 0) {
                     listState.animateScrollToItem(listState.layoutInfo.totalItemsCount - 1)
                 }
             }
-        }.start()
+        }
     }
 
     Column(Modifier.fillMaxSize()) {
