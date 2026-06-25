@@ -18,10 +18,14 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.fybpapi.admin.api.ApiService
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun LoginScreen(onLoginSuccess: () -> Unit) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     var server by remember { mutableStateOf("") }
     var username by remember { mutableStateOf("") }
@@ -41,21 +45,26 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
         loading = true
         error = null
 
-        // 在后台线程执行网络请求
-        Thread {
+        scope.launch(Dispatchers.IO) {
             try {
                 ApiService.init(server)
                 val ok = ApiService.login(username, password)
-                if (ok) {
-                    onLoginSuccess()
-                } else {
-                    error = "登录失败：用户名或密码错误"
+                withContext(Dispatchers.Main) {
+                    if (ok) {
+                        onLoginSuccess()
+                    } else {
+                        error = "登录失败：用户名或密码错误"
+                    }
                 }
             } catch (e: Exception) {
-                error = "连接失败：${e.localizedMessage ?: "未知错误"}"
+                withContext(Dispatchers.Main) {
+                    error = "连接失败：${e.localizedMessage ?: "未知错误"}"
+                }
             }
-            loading = false
-        }.start()
+            withContext(Dispatchers.Main) {
+                loading = false
+            }
+        }
     }
 
     Column(
